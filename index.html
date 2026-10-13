@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>섬타임 · SomTime</title>
+  <meta name="description" content="다이나믹 아일랜드와 PiP 창에 시계를 띄워, 영상을 보면서도 화면을 건드리지 않고 시간을 확인하세요. Check the time on the Dynamic Island and in PiP, even mid-video.">
+  <meta name="theme-color" content="#0E0F12">
+  <meta name="apple-itunes-app" content="app-id=6820983446">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://heopill.github.io/">
+  <meta property="og:title" content="섬타임 · SomTime">
+  <meta property="og:description" content="다이나믹 아일랜드 · PiP 시계와 서버 시간">
+  <meta property="og:image" content="https://heopill.github.io/icon.png">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <style>
+    /* 앱과 같은 다크 테마 단일. 색상 · 반경 · 글자 크기는 앱 디자인 토큰과 같다 */
+    :root {
+      color-scheme: dark;
+      --bg: #0E0F12;
+      --surface: #1A1C21;
+      --surface-raised: #24272E;
+      --segment-selected: #33363E;
+      --border-strong: #2E323B;
+      --divider: #262930;
+      --text-primary: #F2F3F5;
+      --text-secondary: #9A9EA8;
+      --island: #000000;
+      --accent: #FFB340;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text-secondary);
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: keep-all;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+
+    /* 상단 언어 전환 (앱의 세그먼트 모양) */
+    .topbar { display: flex; justify-content: flex-end; padding-top: max(16px, env(safe-area-inset-top)); }
+    .lang { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 12px; }
+    .lang button {
+      appearance: none; border: 0; cursor: pointer;
+      min-height: 32px; padding: 0 12px; border-radius: 10px;
+      background: transparent; color: var(--text-secondary);
+      font: inherit; font-size: 13px; font-weight: 600;
+    }
+    .lang button[aria-pressed="true"] { background: var(--segment-selected); color: var(--text-primary); }
+
+    /* 히어로 */
+    .hero { padding: 36px 0 0; text-align: center; }
+    .app-icon {
+      display: block; width: 88px; height: 88px; margin: 0 auto 20px;
+      border-radius: 20px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .eyebrow { margin: 0 0 4px; color: var(--accent); font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+    h1 { margin: 0; color: var(--text-primary); font-size: 40px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+    .lead { max-width: 30em; margin: 14px auto 28px; font-size: 17px; line-height: 1.6; }
+    .badge { display: inline-block; border-radius: 9px; }
+    .badge img { display: block; width: auto; height: 48px; }
+
+    /* 기기 윗부분 목업: 다이나믹 아일랜드 시계 + 영상 위 PiP 막대(10:1) */
+    .device {
+      position: relative;
+      width: min(100%, 360px); height: 210px; margin: 44px auto 0;
+      border: 1px solid var(--border-strong); border-bottom: 0; border-radius: 48px 48px 0 0;
+      background: var(--surface);
+      background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 9%, var(--surface)) 0%, var(--surface) 62%);
+      -webkit-mask-image: linear-gradient(#000 62%, transparent);
+      mask-image: linear-gradient(#000 62%, transparent);
+      transition: background 0.3s;
+    }
+    .island {
+      position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; justify-content: space-between;
+      width: 248px; height: 40px; padding: 0 18px 0 15px;
+      background: var(--island); border-radius: 999px; color: var(--accent);
+    }
+    .island svg { width: 17px; height: 17px; }
+    .clock-digits { font-weight: 500; font-variant-numeric: tabular-nums; }
+    .island .clock-digits { font-size: 16px; }
+    .pip {
+      position: absolute; top: 112px; right: 22px;
+      display: flex; align-items: baseline; justify-content: center;
+      width: 230px; height: 23px; padding-top: 2px;
+      background: var(--island); border: 1px solid var(--border-strong); border-radius: 8px;
+      color: var(--accent);
+    }
+    .pip .clock-digits { font-size: 14px; line-height: 18px; }
+    .pip .ms { font-size: 10px; opacity: 0.75; }
+
+    /* 주요 기능 */
+    .section { padding-top: 56px; }
+    .section-title { margin: 0 0 12px 4px; color: var(--text-secondary); font-size: 13px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { padding: 18px; background: var(--surface); border-radius: 20px; }
+    .card-wide { grid-column: 1 / -1; }
+    .card-icon {
+      display: grid; place-items: center;
+      width: 44px; height: 44px; margin-bottom: 14px;
+      background: var(--surface-raised); border-radius: 14px; color: var(--accent);
+    }
+    .card-icon svg { width: 22px; height: 22px; }
+    .card h3 { margin: 0 0 6px; color: var(--text-primary); font-size: 16px; font-weight: 600; }
+    .card p { margin: 0; font-size: 14px; line-height: 1.6; }
+    .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin: 12px 0 0 -7px; }
+    .swatch {
+      appearance: none; border: 0; padding: 0; cursor: pointer;
+      display: grid; place-items: center;
+      width: 44px; height: 44px; background: transparent; border-radius: 50%;
+    }
+    .swatch::before {
+      content: ""; width: 28px; height: 28px; border-radius: 50%;
+      background: var(--c); box-shadow: 0 0 0 0 transparent;
+      transition: box-shadow 0.15s;
+    }
+    .swatch[aria-pressed="true"]::before { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--c); }
+    .swatch-hint { margin-left: 8px; font-size: 12px; }
+
+    /* 지원 (앱의 리스트 그룹 모양) */
+    .list { overflow: hidden; background: var(--surface); border-radius: 18px; }
+    .row {
+      display: flex; align-items: center; gap: 12px;
+      min-height: 52px; padding: 0 18px;
+      color: var(--text-primary); font-size: 15px;
+    }
+    .row + .row { border-top: 1px solid var(--divider); }
+    .row:hover { background: #1F2126; }
+    .row .value { margin-left: auto; color: var(--text-secondary); font-size: 14px; overflow-wrap: anywhere; text-align: right; }
+    .row .chevron { flex: none; width: 8px; height: 14px; margin-left: auto; color: var(--text-secondary); }
+    .row .value + .chevron { margin-left: 0; }
+
+    footer { padding: 48px 0 max(40px, env(safe-area-inset-bottom)); font-size: 12px; text-align: center; }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+      .lead { font-size: 16px; }
+      .lead br { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ko" aria-pressed="true">한국어</button>
+        <button type="button" data-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
+
+    <header class="hero">
+      <img class="app-icon" src="icon.png" width="88" height="88" alt="">
+      <p class="eyebrow" data-i18n="eyebrow">SomTime</p>
+      <h1 data-i18n="name">섬타임</h1>
+      <p class="lead" data-i18n="lead">영상을 보면서도 화면을 건드리지 않고<br>다이나믹 아일랜드와 PiP로 시간을 확인하세요.</p>
+      <a class="badge" id="appStoreLink" href="https://apps.apple.com/kr/app/%EC%84%AC%ED%83%80%EC%9E%84/id6820983446">
+        <img id="badge" src="badge-ko.svg" alt="App Store에서 다운로드">
+      </a>
+
+      <div class="device" aria-hidden="true">
+        <div class="island">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span class="clock-digits" id="islandTime">14:05:32</span>
+        </div>
+        <div class="pip">
+          <span class="clock-digits" id="pipTime">14:05:32</span><span class="clock-digits ms" id="pipMs">.000</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="section" aria-labelledby="featuresTitle">
+        <h2 class="section-title" id="featuresTitle" data-i18n="featuresTitle">주요 기능</h2>
+        <div class="grid">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="4"/><circle cx="16.5" cy="12" r="1" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="islandTitle">다이나믹 아일랜드 시계</h3>
+            <p data-i18n="islandBody">어떤 앱을 쓰고 있어도 다이나믹 아일랜드와 잠금 화면에서 초 단위로 시간을 확인해요. iOS 27 이상에서는 가로 모드에서도 표시돼요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12" y="12" width="6" height="4" rx="1" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="pipTitle">PiP 플로팅 시계</h3>
+            <p data-i18n="pipBody">영상 위에 작은 창으로 시계를 띄워요. 얇은 10:1 막대와 2:1 창 중에서 고를 수 있고, 다이나믹 아일랜드가 없는 기기에서도 쓸 수 있어요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.4 2.6 3.6 5.6 3.6 9s-1.2 6.4-3.6 9c-2.4-2.6-3.6-5.6-3.6-9S9.6 5.6 12 3z"/></svg>
+            </div>
+            <h3 data-i18n="serverTitle">서버 시간</h3>
+            <p data-i18n="serverBody">사이트 주소만 입력하면 그 사이트의 서버 시각에 맞춰요. 내 폰보다 몇 초 빠르거나 느린지 보여 주고, PiP에서는 밀리초까지 표시해요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1.5a2.5 2.5 0 0 0 0 5V16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1.5a2.5 2.5 0 0 0 0-5z"/><path d="M15 6v12" stroke-dasharray="2 2.5"/></svg>
+            </div>
+            <h3 data-i18n="ticketTitle">티켓팅 연습</h3>
+            <p data-i18n="ticketBody">정각 클릭 연습과 포도알 클릭 연습으로 실제 예매 전에 손을 풀어 보세요.</p>
+          </article>
+          <article class="card card-wide">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-1 1.4-1.9-.4-1 .3-1.9 1.3-1.9H17a4 4 0 0 0 4-4C21 8 17 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor"/><circle cx="10.5" cy="7" r="1" fill="currentColor"/><circle cx="15.5" cy="8" r="1" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="styleTitle">나만의 시계</h3>
+            <p data-i18n="styleBody">기본 · 굵게 · 모노 · 도트 4가지 디자인과 6가지 색상, 12/24시간 형식과 초 표시를 원하는 대로 골라요.</p>
+            <div class="swatches">
+              <button type="button" class="swatch" style="--c: #F2F2F2" data-color="#F2F2F2" data-i18n-label="colorWhite" aria-label="화이트" aria-pressed="false"></button>
+              <button type="button" class="swatch" style="--c: #FFB340" data-color="#FFB340" data-i18n-label="colorAmber" aria-label="앰버" aria-pressed="true"></button>
+              <button type="button" class="swatch" style="--c: #5CE0B0" data-color="#5CE0B0" data-i18n-label="colorMint" aria-label="민트" aria-pressed="false"></button>
+              <button type="button" class="swatch" style="--c: #64B5FF" data-color="#64B5FF" data-i18n-label="colorSky" aria-label="스카이" aria-pressed="false"></button>
+              <button type="button" class="swatch" style="--c: #B79CFF" data-color="#B79CFF" data-i18n-label="colorLavender" aria-label="라벤더" aria-pressed="false"></button>
+              <button type="button" class="swatch" style="--c: #FF8A70" data-color="#FF8A70" data-i18n-label="colorCoral" aria-label="코랄" aria-pressed="false"></button>
+              <span class="swatch-hint" data-i18n="swatchHint">색상을 눌러 보세요</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="supportTitle">
+        <h2 class="section-title" id="supportTitle" data-i18n="supportTitle">지원</h2>
+        <div class="list">
+          <a class="row" href="https://forms.gle/pSJzNreKz7ymTRLj6">
+            <span data-i18n="contact">문의하기</span>
+            <svg class="chevron" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>
+          </a>
+          <a class="row" href="mailto:somtime.support@gmail.com">
+            <span data-i18n="email">이메일</span>
+            <span class="value">somtime.support@gmail.com</span>
+            <svg class="chevron" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>
+          </a>
+          <a class="row" href="https://harmless-jaguar-fdd.notion.site/3f49aa12554d806ea07feeaea4434ded">
+            <span data-i18n="privacy">개인정보 처리방침</span>
+            <svg class="chevron" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l6 6-6 6"/></svg>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer>© 2026 Seongpil Heo</footer>
+  </div>
+
+  <script>
+    const strings = {
+      ko: {
+        title: "섬타임 · SomTime",
+        eyebrow: "SomTime",
+        name: "섬타임",
+        lead: "영상을 보면서도 화면을 건드리지 않고<br>다이나믹 아일랜드와 PiP로 시간을 확인하세요.",
+        badgeAlt: "App Store에서 다운로드",
+        appStoreURL: "https://apps.apple.com/kr/app/%EC%84%AC%ED%83%80%EC%9E%84/id6820983446",
+        featuresTitle: "주요 기능",
+        islandTitle: "다이나믹 아일랜드 시계",
+        islandBody: "어떤 앱을 쓰고 있어도 다이나믹 아일랜드와 잠금 화면에서 초 단위로 시간을 확인해요. iOS 27 이상에서는 가로 모드에서도 표시돼요.",
+        pipTitle: "PiP 플로팅 시계",
+        pipBody: "영상 위에 작은 창으로 시계를 띄워요. 얇은 10:1 막대와 2:1 창 중에서 고를 수 있고, 다이나믹 아일랜드가 없는 기기에서도 쓸 수 있어요.",
+        serverTitle: "서버 시간",
+        serverBody: "사이트 주소만 입력하면 그 사이트의 서버 시각에 맞춰요. 내 폰보다 몇 초 빠르거나 느린지 보여 주고, PiP에서는 밀리초까지 표시해요.",
+        ticketTitle: "티켓팅 연습",
+        ticketBody: "정각 클릭 연습과 포도알 클릭 연습으로 실제 예매 전에 손을 풀어 보세요.",
+        styleTitle: "나만의 시계",
+        styleBody: "기본 · 굵게 · 모노 · 도트 4가지 디자인과 6가지 색상, 12/24시간 형식과 초 표시를 원하는 대로 골라요.",
+        swatchHint: "색상을 눌러 보세요",
+        colorWhite: "화이트",
+        colorAmber: "앰버",
+        colorMint: "민트",
+        colorSky: "스카이",
+        colorLavender: "라벤더",
+        colorCoral: "코랄",
+        supportTitle: "지원",
+        contact: "문의하기",
+        email: "이메일",
+        privacy: "개인정보 처리방침"
+      },
+      en: {
+        title: "SomTime · 섬타임",
+        eyebrow: "섬타임",
+        name: "SomTime",
+        lead: "Check the time without touching the screen —<br>on the Dynamic Island and in PiP, even mid-video.",
+        badgeAlt: "Download on the App Store",
+        appStoreURL: "https://apps.apple.com/app/id6820983446",
+        featuresTitle: "Features",
+        islandTitle: "Dynamic Island Clock",
+        islandBody: "See the time to the second on the Dynamic Island and the Lock Screen, whatever app you're in. On iOS 27 and later, it shows in landscape too.",
+        pipTitle: "PiP Floating Clock",
+        pipBody: "Float a small clock over your videos. Choose a slim 10:1 bar or a 2:1 window — it works on devices without a Dynamic Island, too.",
+        serverTitle: "Server Time",
+        serverBody: "Enter a site address to sync with its server clock. See how far ahead or behind your phone is, with milliseconds in PiP.",
+        ticketTitle: "Ticketing Practice",
+        ticketBody: "Warm up before the real booking with On-Time Tap and Seat Pick practice.",
+        styleTitle: "Make It Yours",
+        styleBody: "Pick from 4 designs — Classic, Bold, Mono, and Dot — and 6 colors, then set the 12/24-hour format and seconds your way.",
+        swatchHint: "Try a color",
+        colorWhite: "White",
+        colorAmber: "Amber",
+        colorMint: "Mint",
+        colorSky: "Sky",
+        colorLavender: "Lavender",
+        colorCoral: "Coral",
+        supportTitle: "Support",
+        contact: "Contact Us",
+        email: "Email",
+        privacy: "Privacy Policy"
+      }
+    };
+
+    /** 선택한 언어로 페이지 문구를 바꾼다 */
+    function applyLanguage(lang) {
+      const s = strings[lang];
+      document.documentElement.lang = lang;
+      document.title = s.title;
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.innerHTML = s[el.dataset.i18n];
+      });
+      document.querySelectorAll("[data-i18n-label]").forEach((el) => {
+        el.setAttribute("aria-label", s[el.dataset.i18nLabel]);
+        el.title = s[el.dataset.i18nLabel];
+      });
+      const badge = document.getElementById("badge");
+      badge.src = "badge-" + lang + ".svg";
+      badge.alt = s.badgeAlt;
+      document.getElementById("appStoreLink").href = s.appStoreURL;
+      document.querySelectorAll(".lang button").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
+      });
+    }
+
+    /** 저장한 언어가 없으면 브라우저 첫 번째 언어로 고른다 */
+    function initialLanguage() {
+      let saved = null;
+      try { saved = localStorage.getItem("lang"); } catch (e) {}
+      if (saved === "ko" || saved === "en") {
+        return saved;
+      }
+
+      return (navigator.language || "").toLowerCase().startsWith("ko") ? "ko" : "en";
+    }
+
+    applyLanguage(initialLanguage());
+    document.querySelectorAll(".lang button").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyLanguage(button.dataset.lang);
+        try { localStorage.setItem("lang", button.dataset.lang); } catch (e) {}
+      });
+    });
+
+    // 앱처럼 고른 색이 시계 숫자와 강조색에 함께 쓰인다
+    document.querySelectorAll(".swatch").forEach((swatch) => {
+      swatch.addEventListener("click", () => {
+        document.documentElement.style.setProperty("--accent", swatch.dataset.color);
+        document.querySelectorAll(".swatch").forEach((other) => {
+          other.setAttribute("aria-pressed", String(other === swatch));
+        });
+      });
+    });
+
+    const islandTime = document.getElementById("islandTime");
+    const pipTime = document.getElementById("pipTime");
+    const pipMs = document.getElementById("pipMs");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    /** 숫자를 정해진 자릿수로 0을 채운다 */
+    function pad(value, length = 2) {
+      return String(value).padStart(length, "0");
+    }
+
+    /** 아일랜드 · PiP 목업 시계를 현재 시각으로 갱신한다 */
+    function tick() {
+      const now = new Date();
+      const time = pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+      if (islandTime.textContent !== time) {
+        islandTime.textContent = time;
+        pipTime.textContent = time;
+      }
+      pipMs.textContent = reduceMotion ? "" : "." + pad(now.getMilliseconds(), 3);
+    }
+
+    tick();
+    if (reduceMotion) {
+      setInterval(tick, 1000);
+    } else {
+      (function loop() {
+        tick();
+        requestAnimationFrame(loop);
+      })();
+    }
+  </script>
+</body>
+</html>
