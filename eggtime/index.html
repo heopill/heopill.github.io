@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>에그타임 · EggTime</title>
+  <meta name="description" content="반숙부터 완숙까지, 익힘 정도만 고르면 딱 맞는 시간으로 맞춰 주는 계란 타이머. Pick runny to hard-boiled, and the timer sets the perfect time for you.">
+  <meta name="theme-color" content="#EFEFEF">
+  <meta name="apple-itunes-app" content="app-id=6794049013">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://heopill.github.io/eggtime/">
+  <meta property="og:title" content="에그타임 · EggTime">
+  <meta property="og:description" content="익힘 정도만 고르면 시간이 맞춰지는 계란 타이머">
+  <meta property="og:image" content="https://heopill.github.io/eggtime/icon.png">
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <style>
+    /* 앱과 같은 라이트 테마 단일. 색상 · 반경 · 글자 크기는 앱 디자인 토큰과 같다 */
+    :root {
+      color-scheme: light;
+      --bg: #EFEFEF;
+      --surface: #FFFFFF;
+      --sky: #B7EEFF;
+      --accent: #FF6F00;
+      --accent-soft: #FFECDE;
+      --dot: #8ACDE1;
+      --text-strong: #222222;
+      --text-normal: #555555;
+      --island: #000000;
+    }
+    * { box-sizing: border-box; }
+    /* 인라인 SVG에도 hidden 속성이 적용되도록 한다 */
+    [hidden] { display: none !important; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text-normal);
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: keep-all;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; text-decoration: none; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+
+    /* 상단 언어 전환 (앱의 탭 바 선택 모양) */
+    .topbar { display: flex; justify-content: flex-end; padding-top: max(16px, env(safe-area-inset-top)); }
+    .lang { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border-radius: 12px; }
+    .lang button {
+      appearance: none; border: 0; cursor: pointer;
+      min-height: 32px; padding: 0 12px; border-radius: 10px;
+      background: transparent; color: var(--text-normal);
+      font: inherit; font-size: 13px; font-weight: 600;
+    }
+    .lang button[aria-pressed="true"] { background: var(--accent-soft); color: var(--text-strong); }
+
+    /* 히어로 */
+    .hero { padding: 36px 0 0; text-align: center; }
+    .app-icon {
+      display: block; width: 88px; height: 88px; margin: 0 auto 20px;
+      border-radius: 20px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+    .eyebrow { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+    h1 { margin: 0; line-height: 0; }
+    h1 img { display: inline-block; max-width: 100%; height: auto; }
+    .lead { max-width: 30em; margin: 16px auto 28px; font-size: 17px; line-height: 1.6; }
+    .badge { display: inline-block; border-radius: 9px; }
+    .badge img { display: block; width: auto; height: 48px; }
+
+    /* 기기 윗부분 목업: 앱 타이머 화면 (하늘색 배경 · 달걀 스와이프 · 시작 버튼) */
+    .device {
+      position: relative;
+      width: min(100%, 360px); margin: 44px auto 0; padding: 10px 10px 0;
+      background: var(--surface); border-radius: 54px 54px 0 0;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+      -webkit-mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+      mask-image: linear-gradient(#000 calc(100% - 40px), transparent);
+    }
+    .screen { position: relative; overflow: hidden; padding-top: 60px; border-radius: 44px 44px 0 0; background: var(--sky); }
+    .island {
+      position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; justify-content: space-between;
+      width: 112px; height: 34px; padding: 0 14px;
+      background: var(--island); border-radius: 999px; color: var(--accent);
+      transition: width 0.4s cubic-bezier(0.3, 1.3, 0.5, 1);
+    }
+    .island > * { opacity: 0; transition: opacity 0.2s; }
+    .island.is-active { width: 200px; }
+    .island.is-active > * { opacity: 1; transition-delay: 0.15s; }
+    .island svg { width: 18px; height: 18px; }
+    .island-time { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .status { margin: 0; font-size: 15px; font-weight: 600; }
+    .status.is-highlighted { color: var(--accent); }
+    .time {
+      margin: 0; color: var(--text-strong);
+      font-size: 56px; font-weight: 400; line-height: 1.25;
+      font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    }
+
+    .stage { overflow: hidden; margin-top: 4px; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+    .stage:active { cursor: grabbing; }
+    .stage.is-locked { cursor: default; }
+    .stage:focus-visible { outline-offset: -4px; }
+    .track { display: flex; transition: transform 0.35s ease; }
+    .track.is-dragging { transition: none; }
+    .slide { display: flex; flex: 0 0 100%; flex-direction: column; align-items: center; padding: 0 12px; }
+    .egg-frame { display: grid; place-items: center; width: 170px; height: 170px; }
+    .egg-frame img { width: 110px; height: auto; pointer-events: none; -webkit-user-drag: none; }
+    .egg-name { margin: 4px 0 0; color: var(--text-strong); font-size: 26px; font-weight: 600; line-height: 1.3; }
+    .egg-desc { margin: 2px 0 0; font-size: 14px; }
+    .dots { display: flex; justify-content: center; margin-top: 10px; }
+    .dot {
+      appearance: none; border: 0; padding: 0; cursor: pointer;
+      display: grid; place-items: center;
+      width: 24px; height: 24px; background: transparent;
+    }
+    .dot::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); transition: background 0.2s; }
+    .dot[aria-pressed="true"]::before { background: var(--accent); }
+    .dot:disabled { cursor: default; }
+
+    .wave { display: block; width: 100%; height: 34px; margin-top: 12px; }
+    .controls { padding: 4px 0 52px; background: var(--bg); }
+    .control {
+      appearance: none; border: 0; cursor: pointer;
+      display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      width: 80px; height: 80px; border-radius: 12px;
+      background: var(--accent); color: #FFFFFF;
+      box-shadow: 0 8px 8px rgba(85, 85, 85, 0.25);
+      font: inherit; font-size: 14px; font-weight: 600;
+    }
+    .control svg { width: 24px; height: 24px; }
+    .demo-hint { max-width: 26em; margin: 14px auto 0; font-size: 13px; }
+
+    /* 주요 기능 */
+    .section { padding-top: 56px; }
+    .section-title { margin: 0 0 12px 4px; font-size: 13px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card { padding: 18px; background: var(--surface); border-radius: 16px; }
+    .card-wide { grid-column: 1 / -1; }
+    .card-icon {
+      display: grid; place-items: center;
+      width: 44px; height: 44px; margin-bottom: 14px;
+      background: var(--accent-soft); border-radius: 12px; color: var(--accent);
+    }
+    .card-icon svg { width: 24px; height: 24px; }
+    .card h3 { margin: 0 0 6px; color: var(--text-strong); font-size: 16px; font-weight: 600; }
+    .card p { margin: 0; font-size: 14px; line-height: 1.6; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip { padding: 6px 12px; background: var(--bg); border-radius: 999px; font-size: 13px; font-weight: 600; }
+
+    /* 지원 (앱의 설정 카드 모양) */
+    .list { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--surface); border-radius: 12px; }
+    .row { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 16px; }
+    .row:hover { color: var(--text-strong); }
+    .row-icon { flex: none; display: grid; place-items: center; width: 44px; height: 44px; background: var(--bg); border-radius: 12px; }
+    .row-icon svg { width: 24px; height: 24px; }
+    .row-label { display: flex; flex: 1; align-items: center; gap: 10px; min-width: 0; }
+    .row .value { margin-left: auto; font-size: 14px; overflow-wrap: anywhere; text-align: right; }
+    .row .chevron { flex: none; width: 24px; height: 24px; margin-left: auto; }
+
+    footer { padding: 48px 0 max(40px, env(safe-area-inset-bottom)); font-size: 12px; text-align: center; }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .lead { font-size: 16px; }
+      .lead br { display: none; }
+      /* 좁은 화면에서는 이메일 주소를 이름 아래로 내린다 */
+      .row-label { flex-direction: column; align-items: flex-start; gap: 0; }
+      .row-label .value { margin-left: 0; text-align: left; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .track, .island, .island > *, .dot::before { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="ko" aria-pressed="true">한국어</button>
+        <button type="button" data-lang="en" aria-pressed="false">English</button>
+      </div>
+    </div>
+
+    <header class="hero">
+      <img class="app-icon" src="icon.png" width="88" height="88" alt="">
+      <p class="eyebrow" data-i18n="eyebrow">EggTime</p>
+      <h1><img id="logo" src="logo-ko.png" width="174" height="49" alt="에그타임"></h1>
+      <p class="lead" data-i18n="lead">반숙부터 완숙까지, 익힘 정도만 고르면 <br>딱 맞는 시간으로 타이머를 맞춰 드려요.</p>
+      <a class="badge" id="appStoreLink" href="https://apps.apple.com/kr/app/%EC%97%90%EA%B7%B8%ED%83%80%EC%9E%84-%EA%B3%84%EB%9E%80-%ED%83%80%EC%9D%B4%EB%A8%B8/id6794049013">
+        <img id="badge" src="../badge-ko.svg" alt="App Store에서 다운로드">
+      </a>
+
+      <div class="device">
+        <div class="screen">
+          <div class="island" id="island" aria-hidden="true">
+            <svg id="islandTimerIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 10.6868 21.7413 9.38642 21.2388 8.17317C20.7363 6.95991 19.9997 5.85752 19.0711 4.92893C18.1425 4.00035 17.0401 3.26375 15.8268 2.7612C14.6136 2.25866 13.3132 2 12 2ZM12 20C10.4178 20 8.87104 19.5308 7.55544 18.6518C6.23985 17.7727 5.21447 16.5233 4.60897 15.0615C4.00347 13.5997 3.84504 11.9911 4.15372 10.4393C4.4624 8.88743 5.22433 7.46197 6.34315 6.34315C7.46197 5.22433 8.88743 4.4624 10.4393 4.15372C11.9911 3.84504 13.5997 4.00346 15.0615 4.60896C16.5233 5.21447 17.7727 6.23984 18.6518 7.55544C19.5308 8.87103 20 10.4177 20 12C20 14.1217 19.1572 16.1566 17.6569 17.6569C16.1566 19.1571 14.1217 20 12 20ZM12 6C11.7348 6 11.4804 6.10536 11.2929 6.29289C11.1054 6.48043 11 6.73478 11 7V11H9C8.73479 11 8.48043 11.1054 8.2929 11.2929C8.10536 11.4804 8 11.7348 8 12C8 12.2652 8.10536 12.5196 8.2929 12.7071C8.48043 12.8946 8.73479 13 9 13H12C12.2652 13 12.5196 12.8946 12.7071 12.7071C12.8946 12.5196 13 12.2652 13 12V7C13 6.73478 12.8946 6.48043 12.7071 6.29289C12.5196 6.10536 12.2652 6 12 6Z"/></svg>
+            <svg id="islandDoneIcon" viewBox="0 0 24 24" fill="currentColor" hidden><path d="M18.7099 7.20986C18.617 7.11613 18.5064 7.04174 18.3845 6.99097C18.2627 6.9402 18.132 6.91406 17.9999 6.91406C17.8679 6.91406 17.7372 6.9402 17.6154 6.99097C17.4935 7.04174 17.3829 7.11613 17.29 7.20986L9.83995 14.6699L6.70995 11.5299C6.61343 11.4366 6.49949 11.3633 6.37463 11.3141C6.24978 11.2649 6.11645 11.2408 5.98227 11.2431C5.84809 11.2454 5.71568 11.2741 5.5926 11.3276C5.46953 11.3811 5.35819 11.4583 5.26495 11.5549C5.17171 11.6514 5.0984 11.7653 5.04919 11.8902C4.99999 12.015 4.97586 12.1484 4.97818 12.2825C4.9805 12.4167 5.00923 12.5491 5.06272 12.6722C5.11622 12.7953 5.19343 12.9066 5.28995 12.9999L9.12995 16.8399C9.22291 16.9336 9.33351 17.008 9.45537 17.0588C9.57723 17.1095 9.70794 17.1357 9.83995 17.1357C9.97196 17.1357 10.1027 17.1095 10.2245 17.0588C10.3464 17.008 10.457 16.9336 10.55 16.8399L18.7099 8.67986C18.8115 8.58622 18.8925 8.47257 18.9479 8.34607C19.0033 8.21957 19.0319 8.08296 19.0319 7.94486C19.0319 7.80676 19.0033 7.67015 18.9479 7.54365C18.8925 7.41715 18.8115 7.3035 18.7099 7.20986Z"/></svg>
+            <span class="island-time" id="islandTime">06:00</span>
+          </div>
+
+          <p class="status" id="status" aria-live="polite">시작 버튼을 눌러주세요</p>
+          <p class="time" id="time">06:00</p>
+
+          <div class="stage" id="stage" tabindex="0" data-i18n-label="stageLabel" aria-label="익힘 정도 고르기">
+            <div class="track" id="track">
+              <div class="slide">
+                <div class="egg-frame"><img src="egg-1.png" width="260" height="388" alt="" draggable="false"></div>
+                <p class="egg-name" data-i18n="egg1Name">흐르는 반숙</p>
+                <p class="egg-desc" data-i18n="egg1Desc">노른자가 흐르는 반숙</p>
+              </div>
+              <div class="slide" aria-hidden="true">
+                <div class="egg-frame"><img src="egg-2.png" width="260" height="380" alt="" draggable="false"></div>
+                <p class="egg-name" data-i18n="egg2Name">촉촉한 반숙</p>
+                <p class="egg-desc" data-i18n="egg2Desc">노른자가 촉촉한 반숙</p>
+              </div>
+              <div class="slide" aria-hidden="true">
+                <div class="egg-frame"><img src="egg-3.png" width="260" height="380" alt="" draggable="false"></div>
+                <p class="egg-name" data-i18n="egg3Name">적당한 반숙</p>
+                <p class="egg-desc" data-i18n="egg3Desc">노른자가 적당히 익은 반숙</p>
+              </div>
+              <div class="slide" aria-hidden="true">
+                <div class="egg-frame"><img src="egg-4.png" width="260" height="380" alt="" draggable="false"></div>
+                <p class="egg-name" data-i18n="egg4Name">완벽한 완숙</p>
+                <p class="egg-desc" data-i18n="egg4Desc">노른자가 완전히 익은 완숙</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="dots">
+            <button type="button" class="dot" aria-pressed="true"></button>
+            <button type="button" class="dot" aria-pressed="false"></button>
+            <button type="button" class="dot" aria-pressed="false"></button>
+            <button type="button" class="dot" aria-pressed="false"></button>
+          </div>
+
+          <svg class="wave" viewBox="0 0 340 34" preserveAspectRatio="none" aria-hidden="true"><path d="M0 16C40 2 80 2 120 13S200 32 240 20S310 4 340 13V34H0Z" fill="var(--bg)"/></svg>
+          <div class="controls">
+            <button type="button" class="control" id="control">
+              <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.54 8.99978L8.87997 3.45978C8.35725 3.15794 7.76397 2.99982 7.16036 3.00148C6.55676 3.00314 5.96435 3.16451 5.4433 3.46922C4.92225 3.77393 4.49112 4.21111 4.19372 4.73636C3.89631 5.26161 3.74321 5.85621 3.74997 6.45978V17.5798C3.74997 18.4868 4.11029 19.3567 4.75167 19.9981C5.39304 20.6395 6.26293 20.9998 7.16997 20.9998C7.77041 20.9988 8.36006 20.8401 8.87997 20.5398L18.54 14.9998C19.059 14.6994 19.49 14.2678 19.7896 13.7482C20.0891 13.2287 20.2468 12.6395 20.2468 12.0398C20.2468 11.4401 20.0891 10.8509 19.7896 10.3313C19.49 9.81181 19.059 9.38019 18.54 9.07978V8.99978ZM17.54 13.1898L7.87997 18.8098C7.66346 18.9325 7.41884 18.997 7.16997 18.997C6.9211 18.997 6.67648 18.9325 6.45997 18.8098C6.24407 18.6851 6.06479 18.5058 5.94015 18.2899C5.81552 18.074 5.74993 17.8291 5.74997 17.5798V6.41978C5.74993 6.17048 5.81552 5.92556 5.94015 5.70964C6.06479 5.49373 6.24407 5.31443 6.45997 5.18978C6.67738 5.06894 6.92127 5.00367 7.16997 4.99978C7.4185 5.00488 7.66211 5.07007 7.87997 5.18978L17.54 10.7698C17.756 10.8944 17.9353 11.0737 18.06 11.2896C18.1847 11.5055 18.2504 11.7504 18.2504 11.9998C18.2504 12.2491 18.1847 12.4941 18.06 12.71C17.9353 12.9259 17.756 13.1052 17.54 13.2298V13.1898Z"/></svg>
+              <svg id="resetIcon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M12 2C9.43639 2.00731 6.97349 2.99891 5.12 4.77V3C5.12 2.73478 5.01464 2.48043 4.82711 2.29289C4.63957 2.10536 4.38522 2 4.12 2C3.85478 2 3.60043 2.10536 3.41289 2.29289C3.22536 2.48043 3.12 2.73478 3.12 3V7.5C3.12 7.76522 3.22536 8.01957 3.41289 8.20711C3.60043 8.39464 3.85478 8.5 4.12 8.5H8.62C8.88522 8.5 9.13957 8.39464 9.32711 8.20711C9.51464 8.01957 9.62 7.76522 9.62 7.5C9.62 7.23478 9.51464 6.98043 9.32711 6.79289C9.13957 6.60536 8.88522 6.5 8.62 6.5H6.22C7.50578 5.15636 9.21951 4.30265 11.0665 4.08567C12.9136 3.86868 14.7785 4.30198 16.3407 5.31104C17.9028 6.32011 19.0646 7.84191 19.6263 9.61479C20.188 11.3877 20.1145 13.3009 19.4184 15.0254C18.7223 16.7499 17.4472 18.1781 15.8122 19.0643C14.1772 19.9505 12.2845 20.2394 10.4596 19.8813C8.63463 19.5232 6.99147 18.5405 5.81259 17.1022C4.63372 15.6638 3.99279 13.8597 4 12C4 11.7348 3.89464 11.4804 3.70711 11.2929C3.51957 11.1054 3.26522 11 3 11C2.73478 11 2.48043 11.1054 2.29289 11.2929C2.10536 11.4804 2 11.7348 2 12C2 13.9778 2.58649 15.9112 3.6853 17.5557C4.78412 19.2002 6.3459 20.4819 8.17317 21.2388C10.0004 21.9957 12.0111 22.1937 13.9509 21.8079C15.8907 21.422 17.6725 20.4696 19.0711 19.0711C20.4696 17.6725 21.422 15.8907 21.8079 13.9509C22.1937 12.0111 21.9957 10.0004 21.2388 8.17317C20.4819 6.3459 19.2002 4.78412 17.5557 3.6853C15.9112 2.58649 13.9778 2 12 2ZM12 8C11.7348 8 11.4804 8.10536 11.2929 8.29289C11.1054 8.48043 11 8.73478 11 9V12C11 12.2652 11.1054 12.5196 11.2929 12.7071C11.4804 12.8946 11.7348 13 12 13H14C14.2652 13 14.5196 12.8946 14.7071 12.7071C14.8946 12.5196 15 12.2652 15 12C15 11.7348 14.8946 11.4804 14.7071 11.2929C14.5196 11.1054 14.2652 11 14 11H13V9C13 8.73478 12.8946 8.48043 12.7071 8.29289C12.5196 8.10536 12.2652 8 12 8Z"/></svg>
+              <span id="controlLabel">시작</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <p class="demo-hint" data-i18n="demoHint">좌우로 넘겨 익힘 정도를 고르고 시작을 눌러 보세요. 미리보기에서는 1분이 1초로 흘러요.</p>
+    </header>
+
+    <main>
+      <section class="section" aria-labelledby="featuresTitle">
+        <h2 class="section-title" id="featuresTitle" data-i18n="featuresTitle">주요 기능</h2>
+        <div class="grid">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 10.6868 21.7413 9.38642 21.2388 8.17317C20.7363 6.95991 19.9997 5.85752 19.0711 4.92893C18.1425 4.00035 17.0401 3.26375 15.8268 2.7612C14.6136 2.25866 13.3132 2 12 2ZM12 20C10.4178 20 8.87104 19.5308 7.55544 18.6518C6.23985 17.7727 5.21447 16.5233 4.60897 15.0615C4.00347 13.5997 3.84504 11.9911 4.15372 10.4393C4.4624 8.88743 5.22433 7.46197 6.34315 6.34315C7.46197 5.22433 8.88743 4.4624 10.4393 4.15372C11.9911 3.84504 13.5997 4.00346 15.0615 4.60896C16.5233 5.21447 17.7727 6.23984 18.6518 7.55544C19.5308 8.87103 20 10.4177 20 12C20 14.1217 19.1572 16.1566 17.6569 17.6569C16.1566 19.1571 14.1217 20 12 20ZM12 6C11.7348 6 11.4804 6.10536 11.2929 6.29289C11.1054 6.48043 11 6.73478 11 7V11H9C8.73479 11 8.48043 11.1054 8.2929 11.2929C8.10536 11.4804 8 11.7348 8 12C8 12.2652 8.10536 12.5196 8.2929 12.7071C8.48043 12.8946 8.73479 13 9 13H12C12.2652 13 12.5196 12.8946 12.7071 12.7071C12.8946 12.5196 13 12.2652 13 12V7C13 6.73478 12.8946 6.48043 12.7071 6.29289C12.5196 6.10536 12.2652 6 12 6Z"/></svg>
+            </div>
+            <h3 data-i18n="timerTitle">익힘 정도별 타이머</h3>
+            <p data-i18n="timerBody">흐르는 반숙 6분부터 완벽한 완숙 12분까지, 스와이프로 고르면 시간이 바로 맞춰져요. 앱을 닫았다 열어도 타이머는 그대로 이어져요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 13.18V10C17.9986 8.58312 17.4958 7.21247 16.5806 6.13077C15.6655 5.04908 14.3971 4.32615 13 4.09V3C13 2.73478 12.8946 2.48043 12.7071 2.29289C12.5196 2.10536 12.2652 2 12 2C11.7348 2 11.4804 2.10536 11.2929 2.29289C11.1054 2.48043 11 2.73478 11 3V4.09C9.60294 4.32615 8.33452 5.04908 7.41939 6.13077C6.50425 7.21247 6.00144 8.58312 6 10V13.18C5.41645 13.3863 4.911 13.7681 4.55294 14.2729C4.19488 14.7778 4.00174 15.3811 4 16V18C4 18.2652 4.10536 18.5196 4.29289 18.7071C4.48043 18.8946 4.73478 19 5 19H8.14C8.37028 19.8474 8.873 20.5954 9.5706 21.1287C10.2682 21.6621 11.1219 21.951 12 21.951C12.8781 21.951 13.7318 21.6621 14.4294 21.1287C15.127 20.5954 15.6297 19.8474 15.86 19H19C19.2652 19 19.5196 18.8946 19.7071 18.7071C19.8946 18.5196 20 18.2652 20 18V16C19.9983 15.3811 19.8051 14.7778 19.4471 14.2729C19.089 13.7681 18.5835 13.3863 18 13.18ZM8 10C8 8.93913 8.42143 7.92172 9.17157 7.17157C9.92172 6.42143 10.9391 6 12 6C13.0609 6 14.0783 6.42143 14.8284 7.17157C15.5786 7.92172 16 8.93913 16 10V13H8V10ZM12 20C11.651 19.9979 11.3086 19.9045 11.0068 19.7291C10.7051 19.5536 10.4545 19.3023 10.28 19H13.72C13.5455 19.3023 13.2949 19.5536 12.9932 19.7291C12.6914 19.9045 12.349 19.9979 12 20ZM18 17H6V16C6 15.7348 6.10536 15.4804 6.29289 15.2929C6.48043 15.1054 6.73478 15 7 15H17C17.2652 15 17.5196 15.1054 17.7071 15.2929C17.8946 15.4804 18 15.7348 18 16V17Z"/></svg>
+            </div>
+            <h3 data-i18n="alertTitle">완료 알림</h3>
+            <p data-i18n="alertBody">계란이 다 익으면 알림과 완료음으로 바로 알려 줘요. 진동 · 소리 · 진동 및 소리 · 끄기 중에서 고르고, 완료음도 바꿀 수 있어요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="3.5"/><path d="M10 6h4" stroke-width="2.8"/></svg>
+            </div>
+            <h3 data-i18n="islandTitle">다이나믹 아일랜드 · 잠금 화면</h3>
+            <p data-i18n="islandBody">앱을 벗어나도 다이나믹 아일랜드와 잠금 화면에서 남은 시간을 실시간으로 확인해요. 다 익으면 완료 화면으로 바뀌어 30분 동안 남아 있어요.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="2.5"/><rect x="13" y="3" width="8" height="8" rx="2.5"/><rect x="3" y="13" width="18" height="8" rx="2.5"/></svg>
+            </div>
+            <h3 data-i18n="widgetTitle">홈 화면 위젯</h3>
+            <p data-i18n="widgetBody">오늘 만든 반숙 · 완숙 횟수와 이번 주에 계란을 삶은 요일을 홈 화면에서 한눈에 확인해요.</p>
+          </article>
+          <article class="card card-wide">
+            <div class="card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2H8C6.93913 2 5.92172 2.42143 5.17157 3.17157C4.42143 3.92172 4 4.93913 4 6V18C4 19.0609 4.42143 20.0783 5.17157 20.8284C5.92172 21.5786 6.93913 22 8 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V4C20 3.46957 19.7893 2.96086 19.4142 2.58579C19.0391 2.21071 18.5304 2 18 2ZM6 6C6 5.46957 6.21071 4.96086 6.58579 4.58579C6.96086 4.21071 7.46957 4 8 4H18V14H8C7.29504 14.003 6.60399 14.1964 6 14.56V6ZM8 20C7.46957 20 6.96086 19.7893 6.58579 19.4142C6.21071 19.0391 6 18.5304 6 18C6 17.4696 6.21071 16.9609 6.58579 16.5858C6.96086 16.2107 7.46957 16 8 16H18V20H8ZM10 8H14C14.2652 8 14.5196 7.89464 14.7071 7.70711C14.8946 7.51957 15 7.26522 15 7C15 6.73478 14.8946 6.48043 14.7071 6.29289C14.5196 6.10536 14.2652 6 14 6H10C9.73478 6 9.48043 6.10536 9.29289 6.29289C9.10536 6.48043 9 6.73478 9 7C9 7.26522 9.10536 7.51957 9.29289 7.70711C9.48043 7.89464 9.73478 8 10 8Z"/></svg>
+            </div>
+            <h3 data-i18n="recipeTitle">계란 레시피</h3>
+            <p data-i18n="recipeBody">삶는 동안 다음 한 끼를 골라 보세요. 종류별로 찾아보고, 자주 만드는 레시피는 북마크해 두면 언제든 다시 꺼내 볼 수 있어요.</p>
+            <div class="chips">
+              <span class="chip" data-i18n="chipBoiled">삶은 계란</span>
+              <span class="chip" data-i18n="chipFried">계란 프라이</span>
+              <span class="chip" data-i18n="chipScrambled">스크램블 에그</span>
+              <span class="chip" data-i18n="chipOmelette">오믈렛</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="supportTitle">
+        <h2 class="section-title" id="supportTitle" data-i18n="supportTitle">지원</h2>
+        <div class="list">
+          <a class="row" href="https://forms.gle/j3xekhY4gF3QEZfb8">
+            <span class="row-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.7682 5.87C15.9978 6.00037 16.2697 6.03464 16.5245 5.96532C16.7792 5.896 16.9963 5.72873 17.1282 5.5C17.2373 5.30736 17.4074 5.15639 17.6116 5.07078C17.8158 4.98517 18.0426 4.96975 18.2565 5.02694C18.4704 5.08414 18.6593 5.21071 18.7935 5.38681C18.9278 5.56291 18.9997 5.77858 18.9982 6C18.9982 6.26522 18.8928 6.51957 18.7053 6.70711C18.5178 6.89464 18.2634 7 17.9982 7C17.733 7 17.4786 7.10536 17.2911 7.29289C17.1035 7.48043 16.9982 7.73478 16.9982 8C16.9982 8.26522 17.1035 8.51957 17.2911 8.70711C17.4786 8.89464 17.733 9 17.9982 9C18.5247 8.99966 19.0419 8.86075 19.4977 8.59723C19.9536 8.33371 20.332 7.95486 20.5951 7.49875C20.8581 7.04264 20.9965 6.52533 20.9963 5.9988C20.996 5.47227 20.8573 4.95507 20.5939 4.49917C20.3304 4.04326 19.9517 3.66472 19.4956 3.40156C19.0396 3.13841 18.5223 2.99992 17.9958 3C17.4693 3.00008 16.952 3.13874 16.4961 3.40204C16.0401 3.66534 15.6615 4.04401 15.3982 4.5C15.3321 4.61413 15.2892 4.74022 15.272 4.871C15.2548 5.00178 15.2637 5.13466 15.2981 5.262C15.3325 5.38934 15.3917 5.50862 15.4724 5.61297C15.5531 5.71732 15.6536 5.80467 15.7682 5.87ZM20.0682 13C19.8057 12.9659 19.5404 13.0373 19.3305 13.1985C19.1205 13.3597 18.983 13.5976 18.9482 13.86C18.7383 15.5552 17.9159 17.1151 16.6358 18.246C15.3557 19.3769 13.7063 20.0007 11.9982 20H6.40819L7.05819 19.35C7.24444 19.1626 7.34898 18.9092 7.34898 18.645C7.34898 18.3808 7.24444 18.1274 7.05819 17.94C6.08314 16.9611 5.41957 15.7156 5.15108 14.3603C4.88259 13.005 5.02117 11.6005 5.54939 10.3238C6.0776 9.04714 6.97181 7.95532 8.11938 7.18589C9.26694 6.41646 10.6165 6.00384 11.9982 6C12.2634 6 12.5178 5.89464 12.7053 5.70711C12.8928 5.51957 12.9982 5.26522 12.9982 5C12.9982 4.73478 12.8928 4.48043 12.7053 4.29289C12.5178 4.10536 12.2634 4 11.9982 4C10.3074 4.00705 8.65283 4.49024 7.22398 5.39419C5.79513 6.29815 4.64982 7.58632 3.91925 9.11112C3.18868 10.6359 2.90241 12.3357 3.09323 14.0157C3.28405 15.6956 3.94425 17.2879 4.99819 18.61L3.28819 20.29C3.14943 20.4306 3.05543 20.6092 3.01806 20.8032C2.98068 20.9972 3.00161 21.1979 3.07819 21.38C3.15321 21.5626 3.2806 21.7189 3.44432 21.8293C3.60804 21.9396 3.80076 21.999 3.99819 22H11.9982C14.1896 22.0003 16.3059 21.201 17.95 19.7521C19.5941 18.3031 20.653 16.3041 20.9282 14.13C20.9465 13.9993 20.9387 13.8662 20.9053 13.7385C20.8719 13.6107 20.8135 13.4909 20.7336 13.3858C20.6536 13.2808 20.5537 13.1926 20.4395 13.1264C20.3253 13.0602 20.1991 13.0172 20.0682 13ZM18.3782 10.07C18.1961 9.98945 17.9942 9.96508 17.7982 10L17.6182 10.06L17.4382 10.15L17.2882 10.28C17.1982 10.3721 17.1269 10.4808 17.0782 10.6C17.0191 10.7247 16.9916 10.8621 16.9982 11C16.9953 11.1334 17.0191 11.266 17.0682 11.39C17.1199 11.51 17.1946 11.6187 17.2882 11.71C17.3816 11.8027 17.4924 11.876 17.6143 11.9258C17.7361 11.9755 17.8666 12.0008 17.9982 12C18.2634 12 18.5178 11.8946 18.7053 11.7071C18.8928 11.5196 18.9982 11.2652 18.9982 11C19.0016 10.8688 18.9742 10.7387 18.9182 10.62C18.8107 10.3797 18.6185 10.1875 18.3782 10.08V10.07Z"/></svg>
+            </span>
+            <span data-i18n="contact">문의하기</span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18L15 12L9 6"/></svg>
+          </a>
+          <a class="row" href="mailto:eggtime.support@gmail.com">
+            <span class="row-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M4 7.5l8 5.5 8-5.5"/></svg>
+            </span>
+            <span class="row-label">
+              <span data-i18n="email">이메일</span>
+              <span class="value">eggtime.support@gmail.com</span>
+            </span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18L15 12L9 6"/></svg>
+          </a>
+          <a class="row" href="https://app.notion.com/p/3a79aa12554d80fe8b38c6e75e1ac8ca">
+            <span class="row-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.7101 6.53019L20.2901 5.12019L21.7101 3.71019C21.8984 3.52188 22.0042 3.26649 22.0042 3.00019C22.0042 2.73388 21.8984 2.47849 21.7101 2.29019C21.5218 2.10188 21.2664 1.99609 21.0001 1.99609C20.7338 1.99609 20.4784 2.10188 20.2901 2.29019L9.7501 12.8302C8.71614 12.148 7.46577 11.8739 6.24126 12.0611C5.01676 12.2482 3.90532 12.8832 3.12228 13.843C2.33925 14.8029 1.94038 16.0192 2.00297 17.2563C2.06556 18.4935 2.58515 19.6633 3.46105 20.5392C4.33696 21.4151 5.50682 21.9347 6.74395 21.9973C7.98109 22.0599 9.19741 21.661 10.1572 20.878C11.1171 20.095 11.7521 18.9835 11.9392 17.759C12.1263 16.5345 11.8523 15.2841 11.1701 14.2502L16.0501 9.36019L17.4601 10.7802C17.5535 10.8729 17.6644 10.9462 17.7862 10.996C17.908 11.0457 18.0385 11.0709 18.1701 11.0702C18.3017 11.0709 18.4322 11.0457 18.554 10.996C18.6758 10.9462 18.7867 10.8729 18.8801 10.7802C18.9738 10.6872 19.0482 10.5766 19.099 10.4548C19.1498 10.3329 19.1759 10.2022 19.1759 10.0702C19.1759 9.93817 19.1498 9.80747 19.099 9.68561C19.0482 9.56375 18.9738 9.45315 18.8801 9.36019L17.4601 8.00019L18.8801 6.58019L20.2901 8.00019C20.3835 8.09287 20.4944 8.16619 20.6162 8.21596C20.738 8.26572 20.8685 8.29095 21.0001 8.29019C21.1317 8.29095 21.2622 8.26572 21.384 8.21596C21.5058 8.16619 21.6167 8.09287 21.7101 8.00019C21.8116 7.90654 21.8926 7.79289 21.948 7.66639C22.0034 7.53989 22.032 7.40329 22.032 7.26519C22.032 7.12708 22.0034 6.99048 21.948 6.86398C21.8926 6.73748 21.8116 6.62383 21.7101 6.53019ZM7.0001 20.0002C6.40675 20.0002 5.82673 19.8242 5.33339 19.4946C4.84004 19.1649 4.45552 18.6964 4.22846 18.1482C4.00139 17.6001 3.94199 16.9969 4.05774 16.4149C4.1735 15.833 4.45922 15.2984 4.87878 14.8789C5.29833 14.4593 5.83288 14.1736 6.41483 14.0578C6.99677 13.9421 7.59997 14.0015 8.14815 14.2285C8.69632 14.4556 9.16486 14.8401 9.4945 15.3335C9.82415 15.8268 10.0001 16.4068 10.0001 17.0002C10.0001 17.7958 9.68403 18.5589 9.12142 19.1215C8.55881 19.6841 7.79575 20.0002 7.0001 20.0002Z"/></svg>
+            </span>
+            <span data-i18n="privacy">개인정보 처리방침</span>
+            <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18L15 12L9 6"/></svg>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer>© 2026 Seongpil Heo</footer>
+  </div>
+
+  <script>
+    const strings = {
+      ko: {
+        title: "에그타임 · EggTime",
+        eyebrow: "EggTime",
+        logoAlt: "에그타임",
+        lead: "반숙부터 완숙까지, 익힘 정도만 고르면 <br>딱 맞는 시간으로 타이머를 맞춰 드려요.",
+        badgeAlt: "App Store에서 다운로드",
+        appStoreURL: "https://apps.apple.com/kr/app/%EC%97%90%EA%B7%B8%ED%83%80%EC%9E%84-%EA%B3%84%EB%9E%80-%ED%83%80%EC%9D%B4%EB%A8%B8/id6794049013",
+        statusIdle: "시작 버튼을 눌러주세요",
+        statusRunning: "계란이 익고 있어요!",
+        statusDone: "계란이 맛있게 삶아졌어요!",
+        start: "시작",
+        reset: "초기화",
+        islandDone: "완료",
+        minutes: "분",
+        stageLabel: "익힘 정도 고르기",
+        egg1Name: "흐르는 반숙",
+        egg1Desc: "노른자가 흐르는 반숙",
+        egg2Name: "촉촉한 반숙",
+        egg2Desc: "노른자가 촉촉한 반숙",
+        egg3Name: "적당한 반숙",
+        egg3Desc: "노른자가 적당히 익은 반숙",
+        egg4Name: "완벽한 완숙",
+        egg4Desc: "노른자가 완전히 익은 완숙",
+        demoHint: "좌우로 넘겨 익힘 정도를 고르고 시작을 눌러 보세요. 미리보기에서는 1분이 1초로 흘러요.",
+        featuresTitle: "주요 기능",
+        timerTitle: "익힘 정도별 타이머",
+        timerBody: "흐르는 반숙 6분부터 완벽한 완숙 12분까지, 스와이프로 고르면 시간이 바로 맞춰져요. 앱을 닫았다 열어도 타이머는 그대로 이어져요.",
+        alertTitle: "완료 알림",
+        alertBody: "계란이 다 익으면 알림과 완료음으로 바로 알려 줘요. 진동 · 소리 · 진동 및 소리 · 끄기 중에서 고르고, 완료음도 바꿀 수 있어요.",
+        islandTitle: "다이나믹 아일랜드 · 잠금 화면",
+        islandBody: "앱을 벗어나도 다이나믹 아일랜드와 잠금 화면에서 남은 시간을 실시간으로 확인해요. 다 익으면 완료 화면으로 바뀌어 30분 동안 남아 있어요.",
+        widgetTitle: "홈 화면 위젯",
+        widgetBody: "오늘 만든 반숙 · 완숙 횟수와 이번 주에 계란을 삶은 요일을 홈 화면에서 한눈에 확인해요.",
+        recipeTitle: "계란 레시피",
+        recipeBody: "삶는 동안 다음 한 끼를 골라 보세요. 종류별로 찾아보고, 자주 만드는 레시피는 북마크해 두면 언제든 다시 꺼내 볼 수 있어요.",
+        chipBoiled: "삶은 계란",
+        chipFried: "계란 프라이",
+        chipScrambled: "스크램블 에그",
+        chipOmelette: "오믈렛",
+        supportTitle: "지원",
+        contact: "문의하기",
+        email: "이메일",
+        privacy: "개인정보 처리방침"
+      },
+      en: {
+        title: "EggTime · 에그타임",
+        eyebrow: "에그타임",
+        logoAlt: "EggTime",
+        lead: "From runny to hard-boiled — just pick how you like it, <br>and the timer sets the perfect time for you.",
+        badgeAlt: "Download on the App Store",
+        appStoreURL: "https://apps.apple.com/app/id6794049013",
+        statusIdle: "Press the start button",
+        statusRunning: "Your egg is cooking!",
+        statusDone: "Your egg is perfectly boiled!",
+        start: "Start",
+        reset: "Reset",
+        islandDone: "Done",
+        minutes: " min",
+        stageLabel: "Choose doneness",
+        egg1Name: "Runny",
+        egg1Desc: "Soft-boiled with a runny yolk",
+        egg2Name: "Soft",
+        egg2Desc: "Soft-boiled with a moist yolk",
+        egg3Name: "Medium",
+        egg3Desc: "Soft-boiled with a medium yolk",
+        egg4Name: "Hard-boiled",
+        egg4Desc: "Hard-boiled with a fully cooked yolk",
+        demoHint: "Swipe to pick a doneness, then tap Start. In this preview, a minute passes in a second.",
+        featuresTitle: "Features",
+        timerTitle: "Doneness Timer",
+        timerBody: "From Runny at 6 minutes to Hard-boiled at 12, swipe to pick and the time is set. Close the app and come back — the timer keeps going.",
+        alertTitle: "Done Alerts",
+        alertBody: "Get a notification and a chime the moment your eggs are ready. Choose vibrate, sound, both, or off, and pick the chime you like.",
+        islandTitle: "Dynamic Island & Lock Screen",
+        islandBody: "Follow the countdown on the Dynamic Island and the Lock Screen after you leave the app. When it's done, it switches to a done view that stays for 30 minutes.",
+        widgetTitle: "Home Screen Widgets",
+        widgetBody: "See today's soft- and hard-boiled count and the days you boiled eggs this week, right on your Home Screen.",
+        recipeTitle: "Egg Recipes",
+        recipeBody: "Pick your next meal while the eggs boil. Browse by category and bookmark the recipes you make most to find them again anytime.",
+        chipBoiled: "Boiled Egg",
+        chipFried: "Fried Egg",
+        chipScrambled: "Scrambled Eggs",
+        chipOmelette: "Omelette",
+        supportTitle: "Support",
+        contact: "Contact Us",
+        email: "Email",
+        privacy: "Privacy Policy"
+      }
+    };
+
+    // 앱의 익힘 정도별 타이머 시간(분)과 같다
+    const eggMinutes = [6, 8, 10, 12];
+    // 로고 이미지는 2배 해상도로 렌더링해 두었으므로 절반 크기로 표시한다
+    const logoSizes = { ko: [174, 49], en: [220, 60] };
+    // 미리보기에서는 1분을 1초로 흘린다
+    const previewSpeed = 60;
+    const swipeThreshold = 40;
+
+    const island = document.getElementById("island");
+    const islandTimerIcon = document.getElementById("islandTimerIcon");
+    const islandDoneIcon = document.getElementById("islandDoneIcon");
+    const islandTime = document.getElementById("islandTime");
+    const statusText = document.getElementById("status");
+    const timeText = document.getElementById("time");
+    const stage = document.getElementById("stage");
+    const track = document.getElementById("track");
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const dots = Array.from(document.querySelectorAll(".dot"));
+    const control = document.getElementById("control");
+    const playIcon = document.getElementById("playIcon");
+    const resetIcon = document.getElementById("resetIcon");
+    const controlLabel = document.getElementById("controlLabel");
+
+    let currentLang = "ko";
+    let selected = 0;
+    // idle(시작 전) · running(진행 중) · done(완료)
+    let phase = "idle";
+    let startedAt = 0;
+    let frameId = null;
+    let dragStartX = null;
+    let dragOffset = 0;
+
+    /** 선택한 언어로 페이지 문구를 바꾼다 */
+    function applyLanguage(lang) {
+      const s = strings[lang];
+      currentLang = lang;
+      document.documentElement.lang = lang;
+      document.title = s.title;
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.innerHTML = s[el.dataset.i18n];
+      });
+      document.querySelectorAll("[data-i18n-label]").forEach((el) => {
+        el.setAttribute("aria-label", s[el.dataset.i18nLabel]);
+      });
+      const logo = document.getElementById("logo");
+      logo.src = "logo-" + lang + ".png";
+      logo.alt = s.logoAlt;
+      logo.width = logoSizes[lang][0];
+      logo.height = logoSizes[lang][1];
+      const badge = document.getElementById("badge");
+      badge.src = "../badge-" + lang + ".svg";
+      badge.alt = s.badgeAlt;
+      document.getElementById("appStoreLink").href = s.appStoreURL;
+      dots.forEach((dot, index) => {
+        dot.setAttribute("aria-label", s["egg" + (index + 1) + "Name"] + " " + eggMinutes[index] + s.minutes);
+      });
+      document.querySelectorAll(".lang button").forEach((button) => {
+        button.setAttribute("aria-pressed", String(button.dataset.lang === lang));
+      });
+      renderPhase();
+    }
+
+    /** 저장한 언어가 없으면 브라우저 첫 번째 언어로 고른다 */
+    function initialLanguage() {
+      let saved = null;
+      try { saved = localStorage.getItem("lang"); } catch (e) {}
+      if (saved === "ko" || saved === "en") {
+        return saved;
+      }
+
+      return (navigator.language || "").toLowerCase().startsWith("ko") ? "ko" : "en";
+    }
+
+    /** 숫자를 두 자리로 0을 채운다 */
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    /** 초를 mm:ss 형식으로 바꾼다 */
+    function formatTime(seconds) {
+      return pad(Math.floor(seconds / 60)) + ":" + pad(seconds % 60);
+    }
+
+    /** 진행 상태에 따라 남은 시간(초)을 계산한다 */
+    function remainingSeconds() {
+      const total = eggMinutes[selected] * 60;
+      if (phase === "done") {
+        return 0;
+      }
+      if (phase === "idle") {
+        return total;
+      }
+      const elapsed = (performance.now() - startedAt) / 1000 * previewSpeed;
+
+      return Math.max(0, Math.ceil(total - elapsed));
+    }
+
+    /** 남은 시간을 화면과 아일랜드에 표시한다 */
+    function renderTime() {
+      const time = formatTime(remainingSeconds());
+      if (timeText.textContent !== time) {
+        timeText.textContent = time;
+      }
+      if (phase === "running") {
+        islandTime.textContent = time;
+      }
+    }
+
+    /** 진행 상태에 맞춰 안내 문구 · 버튼 · 아일랜드 · 스와이프 가능 여부를 바꾼다 */
+    function renderPhase() {
+      const s = strings[currentLang];
+      const isIdle = phase === "idle";
+      statusText.textContent = isIdle ? s.statusIdle : phase === "running" ? s.statusRunning : s.statusDone;
+      statusText.classList.toggle("is-highlighted", !isIdle);
+      controlLabel.textContent = isIdle ? s.start : s.reset;
+      // SVG 요소에는 hidden 프로퍼티가 없어 속성으로 직접 바꾼다
+      playIcon.toggleAttribute("hidden", !isIdle);
+      resetIcon.toggleAttribute("hidden", isIdle);
+      island.classList.toggle("is-active", !isIdle);
+      islandTimerIcon.toggleAttribute("hidden", phase === "done");
+      islandDoneIcon.toggleAttribute("hidden", phase !== "done");
+      if (phase === "done") {
+        islandTime.textContent = s.islandDone;
+      }
+      stage.classList.toggle("is-locked", !isIdle);
+      dots.forEach((dot) => { dot.disabled = !isIdle; });
+      renderTime();
+    }
+
+    /** 고른 익힘 정도로 달걀 슬라이드와 페이지 점을 옮긴다 */
+    function selectEgg(index) {
+      selected = Math.max(0, Math.min(eggMinutes.length - 1, index));
+      track.style.transform = "translateX(" + (-100 * selected) + "%)";
+      slides.forEach((slide, i) => slide.setAttribute("aria-hidden", String(i !== selected)));
+      dots.forEach((dot, i) => dot.setAttribute("aria-pressed", String(i === selected)));
+      renderTime();
+    }
+
+    /** 미리보기 타이머를 한 프레임 진행하고, 다 되면 완료 상태로 바꾼다 */
+    function step() {
+      renderTime();
+      if (remainingSeconds() > 0) {
+        frameId = requestAnimationFrame(step);
+      } else {
+        phase = "done";
+        renderPhase();
+      }
+    }
+
+    // 시작 전에는 미리보기 타이머를 시작하고, 진행 중 · 완료 후에는 초기화한다
+    control.addEventListener("click", () => {
+      if (phase === "idle") {
+        phase = "running";
+        startedAt = performance.now();
+        renderPhase();
+        frameId = requestAnimationFrame(step);
+      } else {
+        cancelAnimationFrame(frameId);
+        phase = "idle";
+        renderPhase();
+      }
+    });
+
+    dots.forEach((dot, index) => {
+      dot.addEventListener("click", () => selectEgg(index));
+    });
+
+    stage.addEventListener("keydown", (event) => {
+      if (phase !== "idle") {
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        selectEgg(selected - 1);
+      } else if (event.key === "ArrowRight") {
+        selectEgg(selected + 1);
+      }
+    });
+
+    // 앱처럼 달걀을 좌우로 끌어 익힘 정도를 고른다 (양 끝에서는 덜 움직인다)
+    stage.addEventListener("pointerdown", (event) => {
+      if (phase !== "idle") {
+        return;
+      }
+      dragStartX = event.clientX;
+      dragOffset = 0;
+      stage.setPointerCapture(event.pointerId);
+      track.classList.add("is-dragging");
+    });
+
+    stage.addEventListener("pointermove", (event) => {
+      if (dragStartX === null) {
+        return;
+      }
+      dragOffset = event.clientX - dragStartX;
+      const isAtEdge = (selected === 0 && dragOffset > 0) || (selected === eggMinutes.length - 1 && dragOffset < 0);
+      const offset = isAtEdge ? dragOffset / 3 : dragOffset;
+      track.style.transform = "translateX(calc(" + (-100 * selected) + "% + " + offset + "px))";
+    });
+
+    /** 끌기를 마치면 충분히 민 방향으로 한 칸 넘긴다 */
+    function endDrag() {
+      if (dragStartX === null) {
+        return;
+      }
+      dragStartX = null;
+      track.classList.remove("is-dragging");
+      if (dragOffset <= -swipeThreshold) {
+        selectEgg(selected + 1);
+      } else if (dragOffset >= swipeThreshold) {
+        selectEgg(selected - 1);
+      } else {
+        selectEgg(selected);
+      }
+    }
+
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+
+    applyLanguage(initialLanguage());
+    document.querySelectorAll(".lang button").forEach((button) => {
+      button.addEventListener("click", () => {
+        applyLanguage(button.dataset.lang);
+        try { localStorage.setItem("lang", button.dataset.lang); } catch (e) {}
+      });
+    });
+  </script>
+</body>
+</html>
